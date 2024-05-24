@@ -2,6 +2,26 @@ fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
 
-client_script 'client.lua'
+author 'Your Name'
+description 'NPC Robbing Script for FiveM'
+version '1.0.0'
 
-server_script 'server.lua'
+-- Shared scripts
+shared_scripts {
+    'config.lua'
+}
+
+-- Client scripts
+client_scripts {
+    'client.lua'
+}
+
+-- Server scripts
+server_scripts {
+    'server.lua'
+}
+
+-- Dependencies (if any)
+dependencies {
+    'qb-core'
+}

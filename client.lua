@@ -3,14 +3,18 @@ local robbing = false
 local progress = false
 local robbedPeds = {}
 local aimedAtPed = nil
-local maxDistance = 4.0 -- Maximum allowed distance between player and NPC
+local lastNotificationTime = 0
 
-Citizen.CreateThread(function()
-    while QBCore == nil do
-        TriggerEvent('QBCore:GetObject', function(obj) QBCore = obj end)
-        Citizen.Wait(0)
+-- Function to check if the ped is blacklisted
+function isPedBlacklisted(ped)
+    local model = GetEntityModel(ped)
+    for _, blacklistedPed in ipairs(Config.BlacklistPeds) do
+        if model == blacklistedPed then
+            return true
+        end
     end
-end)
+    return false
+end
 
 Citizen.CreateThread(function()
     while true do
@@ -22,23 +26,38 @@ Citizen.CreateThread(function()
             if DoesEntityExist(targetEntity) and IsEntityAPed(targetEntity) and not IsPedAPlayer(targetEntity) then
                 local targetPed = targetEntity
 
-                if not robbedPeds[targetPed] then
+                -- Check if the ped is blacklisted
+                if isPedBlacklisted(targetPed) then
+                    if aimedAtPed ~= targetPed then
+                        local currentTime = GetGameTimer()
+                        if currentTime - lastNotificationTime > Config.NotificationCooldown then
+                            QBCore.Functions.Notify("This NPC cannot be robbed!", "error")
+                            lastNotificationTime = currentTime
+                        end
+                        aimedAtPed = targetPed
+                    end
+                elseif not robbedPeds[targetPed] then
                     if IsPedArmed(playerPed, 4) then
                         if aimedAtPed ~= targetPed then
-                            if not progress then
-                                SetBlockingOfNonTemporaryEvents(targetPed, true)
-                                TaskHandsUp(targetPed, 6000, playerPed, -1, true)
-                                QBCore.Functions.Notify("Press E to rob the NPC", "primary")
+                            local currentTime = GetGameTimer()
+                            if currentTime - lastNotificationTime > Config.NotificationCooldown then
+                                if not progress then
+                                    SetBlockingOfNonTemporaryEvents(targetPed, true)
+                                    TaskHandsUp(targetPed, -1, playerPed, -1, true) -- Keep hands up indefinitely
+                                    FreezeEntityPosition(targetPed, true) -- Freeze NPC position
+                                    SetPedFleeAttributes(targetPed, 0, false) -- Prevent NPC from fleeing
+                                    QBCore.Functions.Notify("Press E to rob the NPC", "primary")
+                                    lastNotificationTime = currentTime
+                                end
+                                aimedAtPed = targetPed
                             end
-                            aimedAtPed = targetPed
                         end
                         if IsControlJustPressed(1, 51) and not progress then -- E key
                             local playerCoords = GetEntityCoords(playerPed)
                             local targetCoords = GetEntityCoords(targetPed)
                             local distance = #(playerCoords - targetCoords)
 
-                            if distance <= maxDistance then
-                                print("E key pressed, starting progress")
+                            if distance <= Config.MaxDistance then
                                 robbing = true
                                 progress = true
 
@@ -56,23 +75,25 @@ Citizen.CreateThread(function()
                                         local targetCoords = GetEntityCoords(targetPed)
                                         local distance = #(playerCoords - targetCoords)
 
-                                        if distance <= maxDistance then
+                                        if distance <= Config.MaxDistance then
                                             progress = false
                                             robbing = false
                                             robbedPeds[targetPed] = true
                                             TriggerServerEvent('qb-npcrob:server:rewardPlayer')
-                                            TaskSmartFleePed(targetPed, PlayerPedId(), 100.0, -1, true, true)
+                                            FreezeEntityPosition(targetPed, false) -- Unfreeze NPC position after robbery
+                                            Citizen.Wait(Config.RobberyCooldown) -- Wait before allowing notification
+                                            TaskSmartFleePed(targetPed, playerPed, 100.0, -1, true, true) -- Make NPC flee after robbery
                                         else
                                             QBCore.Functions.Notify('You are too far from the NPC!', 'error')
                                             progress = false
                                             robbing = false
-                                            TaskSmartFleePed(targetPed, PlayerPedId(), 100.0, -1, true, true)
+                                            TaskSmartFleePed(targetPed, playerPed, 100.0, -1, true, true)
                                         end
                                     end
                                 end, function() -- Cancel callback
                                     progress = false
                                     robbing = false
-                                    TaskSmartFleePed(targetPed, PlayerPedId(), 100.0, -1, true, true)
+                                    TaskSmartFleePed(targetPed, playerPed, 100.0, -1, true, true)
                                     QBCore.Functions.Notify('Robbery cancelled!', 'error')
                                 end)
 
@@ -83,11 +104,11 @@ Citizen.CreateThread(function()
                                         playerCoords = GetEntityCoords(playerPed)
                                         targetCoords = GetEntityCoords(targetPed)
                                         distance = #(playerCoords - targetCoords)
-                                        if distance > maxDistance then
+                                        if distance > Config.MaxDistance then
                                             QBCore.Functions.Notify('You are too far from the NPC!', 'error')
                                             progress = false
                                             robbing = false
-                                            TaskSmartFleePed(targetPed, PlayerPedId(), 100.0, -1, true, true)
+                                            TaskSmartFleePed(targetPed, playerPed, 100.0, -1, true, true)
                                             break
                                         end
                                     end
@@ -102,10 +123,14 @@ Citizen.CreateThread(function()
                     end
                 else
                     if aimedAtPed ~= targetPed then
-                        if not progress then
-                            QBCore.Functions.Notify("This NPC has already been robbed!", "error")
+                        local currentTime = GetGameTimer()
+                        if currentTime - lastNotificationTime > Config.NotificationCooldown then
+                            if not progress and (currentTime - lastNotificationTime > Config.RobberyCooldown) then
+                                QBCore.Functions.Notify("This NPC has already been robbed!", "error")
+                                lastNotificationTime = currentTime
+                            end
+                            aimedAtPed = targetPed
                         end
-                        aimedAtPed = targetPed
                     end
                 end
             else
@@ -122,5 +147,7 @@ AddEventHandler('qb-npcrob:client:rewardPlayer', function()
     local chance = math.random(1, 5) -- 20% chance of getting nothing
     if chance == 1 then
         QBCore.Functions.Notify('You received nothing...', 'error')
+    else
+        QBCore.Functions.Notify('You received your reward.', 'success')
     end
 end)

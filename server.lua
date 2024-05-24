@@ -1,13 +1,5 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-local items = {
-    {item = 'bread', minAmount = 1, maxAmount = 2},
-    {item = 'water', minAmount = 1, maxAmount = 3},
-    {item = 'phone', minAmount = 1, maxAmount = 1},
-    {item = 'lockpick', minAmount = 1, maxAmount = 1},
-    {item = 'money', minAmount = 100, maxAmount = 500}
-}
-
 RegisterNetEvent('qb-npcrob:server:rewardPlayer')
 AddEventHandler('qb-npcrob:server:rewardPlayer', function()
     local src = source
@@ -25,15 +17,15 @@ end)
 
 function GetRandomReward()
     local totalWeight = 0
-    for _, item in pairs(items) do
-        totalWeight = totalWeight + (item.maxAmount - item.minAmount + 1) -- Adding the range of possible amounts as weight
+    for _, item in pairs(Config.Items) do
+        totalWeight = totalWeight + item.chance
     end
 
     local randomNumber = math.random(0, totalWeight)
     local weightSum = 0
 
-    for _, item in pairs(items) do
-        weightSum = weightSum + (item.maxAmount - item.minAmount + 1)
+    for _, item in pairs(Config.Items) do
+        weightSum = weightSum + item.chance
         if randomNumber <= weightSum then
             return item
         end
