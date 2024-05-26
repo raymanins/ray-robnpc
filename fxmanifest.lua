@@ -8,6 +8,7 @@ version '1.0.0'
 
 -- Shared scripts
 shared_scripts {
+    '@ox_lib/init.lua',
     'config.lua'
 }
 
@@ -21,7 +22,7 @@ server_scripts {
     'server.lua'
 }
 
--- Dependencies (if any)
 dependencies {
-    'qb-core'
+    'ox_lib',
+    'ox_inventory'
 }
