@@ -24,7 +24,7 @@ Citizen.CreateThread(function()
             local playerCoords = GetEntityCoords(playerPed)
             local _, targetEntity = GetEntityPlayerIsFreeAimingAt(PlayerId())
 
-            if DoesEntityExist(targetEntity) and IsEntityAPed(targetEntity) and not IsPedAPlayer(targetEntity) then
+            if DoesEntityExist(targetEntity) and IsEntityAPed(targetEntity) and not IsPedAPlayer(targetEntity) and not IsPedInAnyVehicle(targetEntity) then
                 local targetPed = targetEntity
                 local targetCoords = GetEntityCoords(targetPed)
                 local distance = #(playerCoords - targetCoords)
